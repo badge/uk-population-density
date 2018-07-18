@@ -1,0 +1,74 @@
+library(rgdal)
+library(maptools)
+library(ggplot2)
+library(foreign)
+library(dplyr)
+
+#set working directory
+setwd("C:\\Users\\LiY\\Desktop\\Distribution")
+
+#import shapefile
+myshape<-readShapeSpatial("C:\\Users\\LiY\\Desktop\\Distribution\\Districts.shp")
+ 
+#convert format
+mydf<-fortify(myshape)
+
+#change the id number so it starts from 1 instead of 0
+newid<-as.numeric(mydf$id)
+newid = newid +1
+#replace the new column with the old one and then match
+mydf[["id"]] <- newid
+
+#import dbf file
+disid<-read.dbf("Districts.dbf")
+#add ID column into the data
+disid$id <- seq.int(nrow(disid))
+#rename column 1 to density
+colnames(disid)[1] <- "district"
+
+#import csv file
+my_data<-read.csv("PostCodeDistricts.csv")
+Names(my_data)
+#change density to be based on km2
+newdensity <-my_data[5]/(my_data[11]*0.01)
+#replace the new density column with the old one
+my_data[["density"]] <- newdensity
+#rename district
+colnames(my_data)[3]<-"district"
+
+#How do make the dbf file into csv file or create a new table
+#newtable1 <- merge(x = my_data, y = disid, by = "district", all.x = TRUE)
+districtid <- merge(x = mydf, y = disid, by = "id", all.x = TRUE)
+#left join
+table1<- merge.data.frame(districtid, my_data, by = "district", all.districtid=TRUE)  #data ready!
+table1 <-table[, c(1, 2,20)]
+innerjoin<-merge.data.frame(districtid, my_data, by = "district", all.districtid=TRUE)
+mydff <-innerjoin[, c(3, 4,5,6,7,2,8)]
+
+#table1<-table[1,2,20]
+#check there is any n/a
+any(is.na(table))
+
+#need this to remove background and outline of graph
+ditch_the_axes <- theme(
+  axis.text = element_blank(),
+  axis.line = element_blank(),
+  axis.ticks = element_blank(),
+  panel.border = element_blank(),
+  panel.grid = element_blank(),
+  axis.title = element_blank()
+)
+
+map_pop_density <- ggplot(data = mydff, mapping = aes(x = long, y = lat, group = group) ) + 
+  coord_fixed(1.3) + 
+  geom_polygon(aes(x=long,y=lat, group=group, fill=density), data=table) +
+  geom_polygon(color = "grey", fill = NA) +
+  theme_bw() +
+  ditch_the_axes 
+
+map_pop_density
+
+map_pop_density  +scale_fill_gradientn(name = "density", colours = rev(rainbow(6)),
+                         breaks = c(100, 250, 500, 1000, 2500, 5000,24000),
+                         trans = "log10")
+						 
